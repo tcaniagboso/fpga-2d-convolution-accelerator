@@ -2,74 +2,99 @@
 
 void conv_dataflow(
     uint8_t image[],
-    int kernel[9],
+    int kernel[KERNEL_AREA],
     int output[],
     int height,
-    int width)
+    int width,
+    int norm_shift)
 {
-
 #pragma HLS INTERFACE m_axi port=image offset=slave bundle=gmem
 #pragma HLS INTERFACE m_axi port=output offset=slave bundle=gmem
 
 #pragma HLS INTERFACE s_axilite port=kernel bundle=control
 #pragma HLS INTERFACE s_axilite port=height bundle=control
 #pragma HLS INTERFACE s_axilite port=width bundle=control
+#pragma HLS INTERFACE s_axilite port=norm_shift bundle=control
 #pragma HLS INTERFACE s_axilite port=return bundle=control
 
 #pragma HLS ARRAY_PARTITION variable=kernel complete
 
-    uint8_t linebuffer[2][MAX_WIDTH];
-    uint8_t window[3][3];
+    const int K = KERNEL_SIZE;
+    const int AREA = KERNEL_AREA;
+    const int KM1 = K - 1;
 
-#pragma HLS ARRAY_PARTITION variable=window complete
+    if (height < K || width < K)
+        return;
+
+    uint8_t prev[KM1];
+    uint8_t linebuffer[KM1][MAX_WIDTH];
+    uint8_t window[K][K];
+
+#pragma HLS ARRAY_PARTITION variable=prev complete
+#pragma HLS ARRAY_PARTITION variable=window complete dim=0
 #pragma HLS ARRAY_PARTITION variable=linebuffer complete dim=1
 
-    int output_width = width - 2;
+    const int output_width = width - K + 1;
 
-    for(int i = 0; i < height; i++) {
-#pragma HLS LOOP_TRIPCOUNT min=1 max=512
+    for (int i = 0; i < height; i++) {
+#pragma HLS LOOP_TRIPCOUNT min=1 max=MAX_HEIGHT
 
-        for(int j = 0; j < width; j++) {
-#pragma HLS LOOP_TRIPCOUNT min=1 max=512
+        for (int j = 0; j < width; j++) {
+#pragma HLS LOOP_TRIPCOUNT min=1 max=MAX_WIDTH
 #pragma HLS PIPELINE II=1
 
-            uint8_t pixel = image[i * width + j];
+            const uint8_t pixel = image[i * width + j];
 
-            uint8_t prev2 = linebuffer[0][j];
-            uint8_t prev1 = linebuffer[1][j];
-
-            linebuffer[0][j] = prev1;
-            linebuffer[1][j] = pixel;
-
-            // shift window
-            for (int r = 0; r < 3; r++) {
-#pragma HLS LOOP_TRIPCOUNT min=3 max=3                
-                window[r][0] = window[r][1];
-                window[r][1] = window[r][2];
+            // Read current column from linebuffer
+            for (int r = 0; r < KM1; r++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_SIZE - 1) max=(KERNEL_SIZE - 1)
+#pragma HLS UNROLL
+                prev[r] = linebuffer[r][j];
             }
 
-            // insert new column
-            window[0][2] = prev2;
-            window[1][2] = prev1;
-            window[2][2] = pixel;
+            // Shift linebuffer downward and insert current pixel
+            for (int r = 0; r < KM1 - 1; r++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_SIZE - 2) max=(KERNEL_SIZE - 2)
+#pragma HLS UNROLL
+                linebuffer[r][j] = prev[r + 1];
+            }
+            linebuffer[KM1 - 1][j] = pixel;
 
-            if (i >= 2 && j >= 2) {
+            // Shift window left
+            for (int r = 0; r < K; r++) {
+#pragma HLS LOOP_TRIPCOUNT min=KERNEL_SIZE max=KERNEL_SIZE
+#pragma HLS UNROLL
+                for (int c = 0; c < KM1; c++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_SIZE - 1) max=(KERNEL_SIZE - 1)
+#pragma HLS UNROLL
+                    window[r][c] = window[r][c + 1];
+                }
+            }
 
-                int sum = 0;
+            // Insert new rightmost column
+            for (int r = 0; r < KM1; r++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_SIZE - 1) max=(KERNEL_SIZE - 1)
+#pragma HLS UNROLL
+                window[r][KM1] = prev[r];
+            }
+            window[KM1][KM1] = pixel;
 
-                sum += window[0][0] * kernel[0];
-                sum += window[0][1] * kernel[1];
-                sum += window[0][2] * kernel[2];
+            // Compute always
+            int sum = 0;
+            for (int k = 0; k < AREA; k++) {
+#pragma HLS LOOP_TRIPCOUNT min=KERNEL_AREA max=KERNEL_AREA
+#pragma HLS UNROLL
+                const int ki = k / K;
+                const int kj = k % K;
+                sum += window[ki][kj] * kernel[k];
+            }
 
-                sum += window[1][0] * kernel[3];
-                sum += window[1][1] * kernel[4];
-                sum += window[1][2] * kernel[5];
+            const int bias = (norm_shift > 0) ? (1 << (norm_shift - 1)) : 0;
 
-                sum += window[2][0] * kernel[6];
-                sum += window[2][1] * kernel[7];
-                sum += window[2][2] * kernel[8];
-
-                output[(i-2) * output_width + (j-2)] = sum;
+            // Write if valid
+            bool valid = (i >= KM1 && j >= KM1);
+            if (valid) {
+                output[(i - KM1) * output_width + (j - KM1)] = (sum + bias) >> norm_shift;
             }
         }
     }

@@ -5,71 +5,90 @@ void conv_linebuffer(
     int kernel[KERNEL_SIZE * KERNEL_SIZE],
     int output[],
     int height,
-    int width)
+    int width,
+    int norm_shift)
 {
-
 #pragma HLS INTERFACE m_axi port=image offset=slave bundle=gmem
 #pragma HLS INTERFACE m_axi port=output offset=slave bundle=gmem
 
 #pragma HLS INTERFACE s_axilite port=kernel bundle=control
 #pragma HLS INTERFACE s_axilite port=height bundle=control
 #pragma HLS INTERFACE s_axilite port=width bundle=control
+#pragma HLS INTERFACE s_axilite port=norm_shift bundle=control
 #pragma HLS INTERFACE s_axilite port=return bundle=control
 
 #pragma HLS ARRAY_PARTITION variable=kernel complete
 
-    if (height < KERNEL_SIZE || width < KERNEL_SIZE)
+    const int K = KERNEL_SIZE;
+    const int KM1 = K - 1;
+    const int AREA = KERNEL_AREA;
+
+    if (height < K || width < K)
         return;
 
-    int output_height = height - KERNEL_SIZE + 1;
-    int output_width  = width - KERNEL_SIZE + 1;
+    const int output_width = width - K + 1;
 
-    // store previous two rows
-    uint8_t linebuffer[2][MAX_WIDTH];
-
+    // Stores the previous K-1 rows
+    uint8_t linebuffer[KM1][MAX_WIDTH];
 #pragma HLS ARRAY_PARTITION variable=linebuffer complete dim=1
 
-    for (int i = 0; i < height; i++) {
+    // Temporary register copy of the current column values from linebuffer
+    uint8_t prev[KM1];
+#pragma HLS ARRAY_PARTITION variable=prev complete
 
-#pragma HLS LOOP_TRIPCOUNT min=1 max=512
+    for (int i = 0; i < height; i++) {
+#pragma HLS LOOP_TRIPCOUNT min=1 max=MAX_HEIGHT
 
         for (int j = width - 1; j >= 0; j--) {
-
-#pragma HLS LOOP_TRIPCOUNT min=1 max=512
+#pragma HLS LOOP_TRIPCOUNT min=1 max=MAX_WIDTH
 #pragma HLS PIPELINE II=1
 
-            uint8_t pixel = image[i * width + j];
+            const uint8_t pixel = image[i * width + j];
 
-            // read line buffer
-            uint8_t prev2 = linebuffer[0][j];
-            uint8_t prev1 = linebuffer[1][j];
-
-            // compute convolution only when kernel fits
-            if (i >= 2 && j >= 2) {
-
-                int sum = 0;
-
-                // row i-2
-                sum += linebuffer[0][j-2] * kernel[0];
-                sum += linebuffer[0][j-1] * kernel[1];
-                sum += prev2 * kernel[2];
-
-                // row i-1
-                sum += linebuffer[1][j-2] * kernel[3];
-                sum += linebuffer[1][j-1] * kernel[4];
-                sum += prev1 * kernel[5];
-
-                // row i
-                sum += image[i * width + (j-2)] * kernel[6];
-                sum += image[i * width + (j-1)] * kernel[7];
-                sum += pixel * kernel[8];
-
-                output[(i-2) * output_width + (j-2)] = sum;
+            // Read the current column from the linebuffer
+            for (int r = 0; r < KM1; r++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_SIZE - 1) max=(KERNEL_SIZE - 1)
+#pragma HLS UNROLL
+                prev[r] = linebuffer[r][j];
             }
 
-            // shift line buffer
-            linebuffer[0][j] = prev1;
-            linebuffer[1][j] = pixel;
+            // Compute convolution always
+            
+            int sum = 0;
+            const int end = AREA - K;
+
+            // Top K-1 rows come from linebuffer
+            for (int k = 0; k < end; k++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_AREA - KERNEL_SIZE) max=(KERNEL_AREA - KERNEL_SIZE)
+#pragma HLS UNROLL
+                const int ki = k / K;
+                const int kj = k % K;
+                sum += linebuffer[ki][j - KM1 + kj] * kernel[k];
+            }
+
+            // Bottom row comes from current image row
+            for (int k = end; k < AREA; k++) {
+#pragma HLS LOOP_TRIPCOUNT min=KERNEL_SIZE max=KERNEL_SIZE
+#pragma HLS UNROLL
+                const int kj = k % K;
+                sum += image[i * width + (j - KM1 + kj)] * kernel[k];
+            }
+
+            const int bias = (norm_shift > 0) ? (1 << (norm_shift - 1)) : 0;
+
+            bool valid = (i >= KM1 && j >= KM1);
+            if (valid) {
+                output[(i - KM1) * output_width + (j - KM1)] = (sum + bias) >> norm_shift;
+            }
+
+            // Shift linebuffer downward and insert current pixel
+            for (int r = 0; r < KM1 - 1; r++) {
+#pragma HLS LOOP_TRIPCOUNT min=(KERNEL_SIZE - 2) max=(KERNEL_SIZE - 2)
+#pragma HLS UNROLL
+                linebuffer[r][j] = prev[r + 1];
+            }
+
+            linebuffer[KM1 - 1][j] = pixel;
         }
     }
 }
