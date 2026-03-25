@@ -23,6 +23,12 @@ void conv_dataflow_stream(
     const int K = KERNEL_SIZE;
     const int KM1 = K - 1;
     const int AREA = KERNEL_AREA;
+    uint32_t in_word = 0;
+    int in_count = 0;
+    uint32_t out_word = 0;
+    int out_count = 0;
+    int total_pixels = (height - K + 1) * (width - K + 1);
+    int pixel_counter = 0;
 
     if (height < K || width < K)
         return;
@@ -44,10 +50,19 @@ void conv_dataflow_stream(
 #pragma HLS PIPELINE II=1
 
             // =========================
-            // 1. Read pixel
+            // 1. Read 4 uint8_t pixels
+            //    from 32 bits wide stream
             // =========================
-            axis_pixel_t in_pkt = in_stream.read();
-            uint8_t pixel = in_pkt.data;
+
+            if (in_count == 0) {
+                axis_pixel_t in_pkt = in_stream.read();
+                in_word = in_pkt.data;
+            }
+
+            uint8_t pixel = (in_word >> (8 * in_count)) & 0xFF;
+
+            in_count++;
+            if (in_count == 4) in_count = 0;
 
             // =========================
             // 2. Read linebuffer -> prev
@@ -112,24 +127,38 @@ void conv_dataflow_stream(
             // =========================
             bool valid = (i >= KM1 && j >= KM1);
             if (valid) {
-                axis_pixel_t out_pkt;
                 int clamped = (result < 0)? 0 : result;
                 clamped = (clamped > 255)? 255 : clamped;
-                out_pkt.data = (uint8_t)clamped;
-                out_pkt.keep = -1;
 
-                const int out_i = i - KM1;
-                const int out_j = j - KM1;
+                out_word |= (clamped & 0xFF) << (8 * out_count);
+                out_count++;
+                pixel_counter++;
 
-                const int out_h = height - K + 1;
-                const int out_w = width  - K + 1;
+                if (out_count == 4) {
+                    axis_pixel_t out_pkt;
+                    out_pkt.data = out_word;
+                    out_pkt.keep = -1;
 
-                out_pkt.last = (out_i == out_h - 1 && out_j == out_w - 1);
+                    bool is_last_pixel = (pixel_counter == total_pixels);
+                    out_pkt.last = is_last_pixel;
 
-                out_stream.write(out_pkt);
+                    out_stream.write(out_pkt);
+
+                    out_word = 0;
+                    out_count = 0;
+                }
             }
         }
     }
+
+    if (out_count != 0) {
+        axis_pixel_t out_pkt;
+        out_pkt.data = out_word;
+        out_pkt.keep = -1;
+        out_pkt.last = 1;
+        out_stream.write(out_pkt);
+    }
+    
 }
 
 void conv_dataflow_stream_int(
@@ -155,6 +184,8 @@ void conv_dataflow_stream_int(
     const int K = KERNEL_SIZE;
     const int KM1 = K - 1;
     const int AREA = KERNEL_AREA;
+    uint32_t in_word = 0;
+    int in_count = 0;
 
     if (height < K || width < K)
         return;
@@ -176,10 +207,20 @@ void conv_dataflow_stream_int(
 #pragma HLS PIPELINE II=1
 
             // =========================
-            // 1. Read pixel
+            // 1. Read 4 uint8_t pixels
+            //    from 32 bits wide stream
             // =========================
-            axis_pixel_t in_pkt = in_stream.read();
-            uint8_t pixel = in_pkt.data;
+
+            if (in_count == 0) {
+                axis_pixel_t in_pkt = in_stream.read();
+                in_word = in_pkt.data;
+            }
+
+            uint8_t pixel = (in_word >> (8 * in_count)) & 0xFF;
+
+            in_count++;
+            if (in_count == 4) in_count = 0;
+
 
             // =========================
             // 2. Read linebuffer -> prev

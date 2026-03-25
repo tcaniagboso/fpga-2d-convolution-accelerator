@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <type_traits>
 #include "conv_kernels.h"
 
 #define HEIGHT 512
@@ -163,26 +164,62 @@ void run_stream_test(
     hls::stream<axis_pixel_t> in_stream;
     hls::stream<Out> out_stream;
 
-    // write input
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
+    // =====================
+    // PACK INPUT
+    // =====================
+    uint32_t word = 0;
+    int count = 0;
+
+    for (int i = 0; i < HEIGHT * WIDTH; i++) {
+        word |= (image[i] & 0xFF) << (8 * count);
+        count++;
+
+        if (count == 4) {
             axis_pixel_t pkt;
-            pkt.data = image[i * WIDTH + j];
+            pkt.data = word;
             pkt.keep = -1;
-            pkt.last = (i == HEIGHT - 1 && j == WIDTH - 1);
+            pkt.last = (i == HEIGHT * WIDTH - 1);
             in_stream.write(pkt);
+
+            word = 0;
+            count = 0;
         }
     }
 
-    // run kernel
+    if (count != 0) {
+        axis_pixel_t pkt;
+        pkt.data = word;
+        pkt.keep = -1;
+        pkt.last = 1;
+        in_stream.write(pkt);
+    }
+
+    // =====================
+    // RUN
+    // =====================
     StreamFn(in_stream, out_stream, kernel.kernel_, HEIGHT, WIDTH, kernel.norm_shift_);
 
-    // read output
+    // =====================
+    // READ OUTPUT
+    // =====================
     T output_stream[size];
 
-    for (int i = 0; i < size; i++) {
-        Out pkt = out_stream.read();
-        output_stream[i] = pkt.data;
+    if constexpr (std::is_same<T, uint8_t>::value) {
+        int idx = 0;
+
+        while (idx < size) {
+            Out pkt = out_stream.read();
+            uint32_t word = pkt.data;
+
+            for (int k = 0; k < 4 && idx < size; k++) {
+                output_stream[idx++] = (word >> (8 * k)) & 0xFF;
+            }
+        }
+    } else {
+        for (int i = 0; i < size; i++) {
+            Out pkt = out_stream.read();
+            output_stream[i] = pkt.data;
+        }
     }
 
     bool passed = compare_to_golden<T>(output_golden, output_stream, design_name, size);

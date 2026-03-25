@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <hls_stream.h>
 
-typedef ap_axiu<8, 0, 0, 0> axis_pixel_t;   // uint8_t representations
-typedef ap_axiu<32,0,0,0> axis_int_t;   // int representations
+typedef ap_axiu<32, 0, 0, 0> axis_pixel_t;   // holds 8-bit 4 pixels
+typedef ap_axiu<32, 0, 0, 0> axis_int_t;   // int representations
 
 void conv_baseline(
     uint8_t image[],
