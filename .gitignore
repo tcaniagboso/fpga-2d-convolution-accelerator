@@ -16,3 +16,21 @@ Thumbs.db
 
 # Temporary files
 *.tmp
+
+# Vivado
+.vivado/
+*.log
+*.jou
+*.str
+.cache/
+.hw/
+.runs/
+.ip_user_files/
+.Xil/
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
