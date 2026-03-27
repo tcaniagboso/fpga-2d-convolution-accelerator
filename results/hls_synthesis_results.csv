@@ -1,0 +1,7 @@
+﻿Design,Data Type,Initiation interval (II),Latency (Cycles),Latency (NS),Interval,BRAM,DSP,FF,LUT,URAM
+conv_baseline,int,9,2340922,2.34E+07,2340923,4,9,3561,5327,0
+conv_pipeline,int,9,2340921,2.34E+07,2340922,4,10,3848,5119,0
+conv_linebuffer,int,3,786452,7.87E+06,786453,6,20,4031,5205,0
+conv_dataflow,int,1,262164,2.62E+06,262165,6,30,3288,4119,0
+conv_dataflow_stream,uint8_t,1,265731,2.66E+06,265732,2,21,1459,2972,0
+conv_dataflow_stream_int,int,1,265730,2.66E+06,265731,2,18,1361,2537,0
