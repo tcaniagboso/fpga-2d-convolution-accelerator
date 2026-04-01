@@ -34,3 +34,6 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Code dump
+dump/
