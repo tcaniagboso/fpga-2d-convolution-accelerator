@@ -1,0 +1,37 @@
+kernel,height,most_common_best_tile
+Gaussian,4,
+Gaussian,8,
+Gaussian,16,
+Gaussian,32,
+Gaussian,64,32.0
+Gaussian,128,64.0
+Gaussian,256,128.0
+Gaussian,512,256.0
+Gaussian,1024,512.0
+Gaussian,2048,512.0
+Gaussian,4096,512.0
+Gaussian,8192,512.0
+Sobel X,4,
+Sobel X,8,
+Sobel X,16,
+Sobel X,32,
+Sobel X,64,32.0
+Sobel X,128,64.0
+Sobel X,256,128.0
+Sobel X,512,256.0
+Sobel X,1024,512.0
+Sobel X,2048,512.0
+Sobel X,4096,512.0
+Sobel X,8192,512.0
+Sobel Y,4,
+Sobel Y,8,
+Sobel Y,16,
+Sobel Y,32,
+Sobel Y,64,32.0
+Sobel Y,128,64.0
+Sobel Y,256,128.0
+Sobel Y,512,256.0
+Sobel Y,1024,512.0
+Sobel Y,2048,512.0
+Sobel Y,4096,512.0
+Sobel Y,8192,512.0

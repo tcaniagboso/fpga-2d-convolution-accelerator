@@ -1,0 +1,37 @@
+kernel,height,width,best_tile,num_tiles
+Sobel X,4,4,,
+Sobel Y,4,4,,
+Gaussian,4,4,,
+Sobel X,8,8,,
+Sobel Y,8,8,,
+Gaussian,8,8,,
+Sobel X,16,16,,
+Sobel Y,16,16,,
+Gaussian,16,16,,
+Sobel X,32,32,,
+Sobel Y,32,32,,
+Gaussian,32,32,,
+Sobel X,64,64,32.0,9.0
+Sobel Y,64,64,32.0,9.0
+Gaussian,64,64,32.0,9.0
+Sobel X,128,128,64.0,9.0
+Sobel Y,128,128,64.0,9.0
+Gaussian,128,128,64.0,9.0
+Sobel X,256,256,128.0,9.0
+Sobel Y,256,256,128.0,9.0
+Gaussian,256,256,128.0,9.0
+Sobel X,512,512,256.0,9.0
+Sobel Y,512,512,256.0,9.0
+Gaussian,512,512,256.0,9.0
+Sobel X,1024,1024,512.0,9.0
+Sobel Y,1024,1024,512.0,9.0
+Gaussian,1024,1024,512.0,9.0
+Sobel X,2048,2048,512.0,25.0
+Sobel Y,2048,2048,512.0,25.0
+Gaussian,2048,2048,512.0,25.0
+Sobel X,4096,4096,512.0,81.0
+Sobel Y,4096,4096,512.0,81.0
+Gaussian,4096,4096,512.0,81.0
+Sobel X,8192,8192,512.0,289.0
+Sobel Y,8192,8192,512.0,289.0
+Gaussian,8192,8192,512.0,289.0
