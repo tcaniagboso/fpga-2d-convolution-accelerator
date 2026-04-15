@@ -1,0 +1,25 @@
+kernel,height,best_tile,count
+Gaussian,64,32.0,1
+Gaussian,128,64.0,1
+Gaussian,256,128.0,1
+Gaussian,512,256.0,1
+Gaussian,1024,512.0,1
+Gaussian,2048,512.0,1
+Gaussian,4096,512.0,1
+Gaussian,8192,512.0,1
+Sobel X,64,32.0,1
+Sobel X,128,64.0,1
+Sobel X,256,128.0,1
+Sobel X,512,256.0,1
+Sobel X,1024,512.0,1
+Sobel X,2048,512.0,1
+Sobel X,4096,512.0,1
+Sobel X,8192,512.0,1
+Sobel Y,64,32.0,1
+Sobel Y,128,64.0,1
+Sobel Y,256,128.0,1
+Sobel Y,512,256.0,1
+Sobel Y,1024,512.0,1
+Sobel Y,2048,512.0,1
+Sobel Y,4096,512.0,1
+Sobel Y,8192,512.0,1
